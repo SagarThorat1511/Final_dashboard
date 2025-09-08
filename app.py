@@ -984,6 +984,39 @@ def fetch_data_zone02():
             FROM [{station_table}]
             WHERE {where_clause}
         """)
+        if station_table == "Welding_Fixture_Loading_Station":
+            query = text(f"""
+            SELECT * FROM [{station_table}]
+            WHERE {where_clause}
+            ORDER BY [DateTime] DESC
+            OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+            """)
+        # Total unique modules
+        count_query = text(f"""
+            SELECT COUNT(DISTINCT ModuleBarcode) as total
+            FROM [{station_table}]
+            WHERE {where_clause}
+        """)
+
+        # Module-level OK/NG classification
+        status_query = text(f"""
+            WITH module_status AS (
+                SELECT 
+                    ModuleBarcode,
+                    CASE 
+                        WHEN MIN(WeldStatus) = 1 AND MAX(WeldStatus) = 1 THEN 1  -- ✅ all 1 = OK
+                        ELSE 2  -- ❌ any 2 = NG
+                    END as final_status
+                FROM [{station_table}]
+                WHERE {where_clause}
+                GROUP BY ModuleBarcode
+            )
+            SELECT 
+                SUM(CASE WHEN final_status = 1 THEN 1 ELSE 0 END) as total_ok,
+                SUM(CASE WHEN final_status = 2 THEN 1 ELSE 0 END) as total_ng
+            FROM module_status
+        """)
+
 
         with engine_zone02.connect() as conn:
             total = conn.execute(count_query, params).scalar()
