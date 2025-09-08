@@ -1,4 +1,4 @@
-from flask import Flask, render_template, url_for, redirect, jsonify, request, send_file,session     
+from flask import Flask, render_template, url_for, redirect, jsonify, request, send_file, session
 from flask_compress import Compress
 from datetime import datetime
 from threading import Thread
@@ -17,7 +17,7 @@ import pandas as pd
 app = Flask(__name__)
 app.config["JSON_SORT_KEYS"] = False
 Compress(app)
-app.secret_key = "super_secret_key_123" 
+app.secret_key = "super_secret_key_123"
 # -----------------------
 # User credentials
 # -----------------------
@@ -77,6 +77,7 @@ DATE_FORMATS = [
     "%Y-%m-%d",
 ]
 
+
 def parse_date(s: str):
     if not s:
         return None
@@ -86,6 +87,8 @@ def parse_date(s: str):
         except ValueError:
             continue
     raise ValueError(f"Invalid date format: {s}")
+
+
 # -----------------------
 # Helper: check login
 # -----------------------
@@ -96,7 +99,9 @@ def login_required(f):
         if "username" not in session:  # not logged in
             return redirect(url_for("login"))
         return f(*args, **kwargs)
+
     return decorated_function
+
 
 def build_where_and_params(q):
     """Builds WHERE clause and params dict from request args shared by stats + rows"""
@@ -142,6 +147,7 @@ def build_where_and_params(q):
     q["where_sql"] = " AND ".join(where)
     q["params"] = params
 
+
 # -----------------------
 # Views
 # -----------------------
@@ -150,20 +156,25 @@ def build_where_and_params(q):
 def index():
     return render_template("zone01.html")
 
+
 @app.route("/modeldashboard")
 @login_required
 def modeldashboard():
     return render_template("modeldashboard.html")
+
 
 @app.route("/zone03_dashboard")
 @login_required
 def zone03():
     return render_template("Zone03.html")
 
+
 @app.route("/zone02_dashboard")
 @login_required
 def zone02():
     return render_template("zone02.html")
+
+
 # -----------------------
 # Login Route
 # -----------------------
@@ -179,6 +190,8 @@ def login():
         else:
             return render_template("login.html", error="Invalid credentials")
     return render_template("login.html")
+
+
 # -----------------------
 # Logout Route
 # -----------------------
@@ -186,6 +199,7 @@ def login():
 def logout():
     session.pop("username", None)
     return redirect(url_for("login"))
+
 
 # -----------------------
 # Dashboard API Zone 01 (stats + paginated rows in one call)
@@ -308,6 +322,7 @@ def api_cell_dashboard():
     except Exception as e:
         return jsonify({"error": f"Query failed: {e}"}), 500
 
+
 # -----------------------
 # Module data route (kept, but consider optimizing similarly if heavy)
 # -----------------------
@@ -344,6 +359,7 @@ def build_where_and_params_module(q):
 
     q["where_sql"] = " AND ".join(where)
     q["params"] = params
+
 
 @app.route("/api/module_dashboard")
 def handle_fetch_module_data():
@@ -453,7 +469,7 @@ def handle_fetch_module_data():
         )
         SELECT COUNT(*) AS total FROM ModuleCells;
     """)
-    
+
     try:
         with engine.connect() as conn:
             total = conn.execute(count_sql, params).scalar() or 0
@@ -481,6 +497,7 @@ def handle_fetch_module_data():
     except Exception as e:
         return jsonify({"error": f"Query failed: {e}"}), 500
 
+
 # -----------------------
 # Full Export with progress (CSV)
 # -----------------------
@@ -489,6 +506,7 @@ EXPORT_TASKS = {}
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font
+
 
 def export_worker(task_id, args):
     try:
@@ -606,7 +624,7 @@ def export_worker(task_id, args):
             ws.title = "Cell Reports"
 
             bold_font = Font(bold=True)
-            
+
             # --- Write Totals ---
             ws.append(["Overall Summary"])
             ws["A1"].font = Font(bold=True)
@@ -679,7 +697,7 @@ def export_worker(task_id, args):
                     row_dict = dict(row)
                     if row_dict.get("Cell_Capacity_Actual") is not None:
                         row_dict["Cell_Capacity_Actual"] = round(float(row_dict["Cell_Capacity_Actual"]), 3)
-                    for k in ("Cell_Voltage_Actual","Cell_Resistance_Actual"):
+                    for k in ("Cell_Voltage_Actual", "Cell_Resistance_Actual"):
                         if row_dict.get(k) is not None:
                             row_dict[k] = round(float(row_dict[k]), 4)
                     ws.append([row_dict.get(h) for h in headers])
@@ -711,6 +729,7 @@ def export_worker(task_id, args):
         EXPORT_TASKS[task_id]["done"] = True
         EXPORT_TASKS[task_id]["progress"] = 100
 
+
 @app.route("/api/export", methods=["POST"])
 def api_export():
     """Start background export with current filters. Returns a task_id to poll."""
@@ -721,6 +740,7 @@ def api_export():
     t.start()
     return jsonify({"task_id": task_id})
 
+
 @app.route("/api/export/status")
 def api_export_status():
     task_id = request.args.get("task_id")
@@ -729,6 +749,7 @@ def api_export_status():
         return jsonify({"error": "invalid task_id"}), 404
     print(t)
     return jsonify({"progress": t["progress"], "done": t["done"], "error": t["error"]})
+
 
 @app.route("/api/export/download")
 def api_export_download():
@@ -900,6 +921,7 @@ def export_module(task_id, args):
         EXPORT_TASKS[task_id]["done"] = True
         EXPORT_TASKS[task_id]["progress"] = 100
 
+
 @app.route("/api/module_export", methods=["POST"])
 def api_module_export():
     """Start background export with current filters. Returns a task_id to poll."""
@@ -910,6 +932,7 @@ def api_module_export():
     t.start()
     return jsonify({"task_id": task_id})
 
+
 @app.route("/api/module_export/status")
 def api_module_export_status():
     task_id = request.args.get("task_id")
@@ -918,6 +941,7 @@ def api_module_export_status():
         return jsonify({"error": "invalid task_id"}), 404
     print(t)
     return jsonify({"progress": t["progress"], "done": t["done"], "error": t["error"]})
+
 
 @app.route("/api/module_export/download")
 def api_module_export_download():
@@ -943,7 +967,7 @@ def api_module_export_download():
 def fetch_data_zone02():
     try:
         body = request.get_json(force=True) or {}
-        station_table = body.get("station_name")   # 👈 Table name
+        station_table = body.get("station_name")  # 👈 Table name
         barcode = body.get("barcode")
         start_date = parse_date(body.get("start_date"))
         end_date = parse_date(body.get("end_date"))
@@ -961,7 +985,7 @@ def fetch_data_zone02():
             params["start"] = start_date
             params["end"] = end_date
         if barcode:
-            filters.append("Barcode = :barcode")
+            filters.append("ModuleBarcodeData = :barcode")
             params["barcode"] = barcode
 
         where_clause = " AND ".join(filters) if filters else "1=1"
@@ -976,7 +1000,7 @@ def fetch_data_zone02():
             SELECT COUNT(*) as total FROM [{station_table}]
             WHERE {where_clause}
         """)
-           # Status counts
+        # Status counts
         status_query = text(f"""
             SELECT 
                 SUM(CASE WHEN Status = 1 THEN 1 ELSE 0 END) as total_ok,
@@ -984,39 +1008,28 @@ def fetch_data_zone02():
             FROM [{station_table}]
             WHERE {where_clause}
         """)
-        if station_table == "Welding_Fixture_Loading_Station":
-            query = text(f"""
-            SELECT * FROM [{station_table}]
-            WHERE {where_clause}
-            ORDER BY [DateTime] DESC
-            OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
-            """)
-        # Total unique modules
-        count_query = text(f"""
-            SELECT COUNT(DISTINCT ModuleBarcode) as total
-            FROM [{station_table}]
-            WHERE {where_clause}
-        """)
+        if station_table == "Laser_Welding_Staion":
+            # Count of distinct modules
+            count_query = text(f"""
+                    SELECT COUNT(DISTINCT ModuleBarcodeData) as total
+                    FROM [{station_table}]
+                    WHERE {where_clause}
+                """)
 
-        # Module-level OK/NG classification
-        status_query = text(f"""
-            WITH module_status AS (
-                SELECT 
-                    ModuleBarcode,
-                    CASE 
-                        WHEN MIN(WeldStatus) = 1 AND MAX(WeldStatus) = 1 THEN 1  -- ✅ all 1 = OK
-                        ELSE 2  -- ❌ any 2 = NG
-                    END as final_status
-                FROM [{station_table}]
-                WHERE {where_clause}
-                GROUP BY ModuleBarcode
-            )
-            SELECT 
-                SUM(CASE WHEN final_status = 1 THEN 1 ELSE 0 END) as total_ok,
-                SUM(CASE WHEN final_status = 2 THEN 1 ELSE 0 END) as total_ng
-            FROM module_status
-        """)
-
+            # Module-level OK/NG classification
+            status_query = text(f"""
+                    SELECT
+                        SUM(CASE WHEN min_status = 1 AND max_status = 1 THEN 1 ELSE 0 END) as total_ok,
+                        SUM(CASE WHEN max_status = 2 OR min_status = 2 THEN 1 ELSE 0 END) as total_ng
+                    FROM (
+                        SELECT ModuleBarcodeData,
+                               MIN(WeldStatus) as min_status,
+                               MAX(WeldStatus) as max_status
+                        FROM [{station_table}]
+                        WHERE {where_clause}
+                        GROUP BY ModuleBarcodeData
+                    ) grouped
+                """)
 
         with engine_zone02.connect() as conn:
             total = conn.execute(count_query, params).scalar()
@@ -1024,20 +1037,21 @@ def fetch_data_zone02():
             status_counts = conn.execute(status_query, params).mappings().first() or {}
             total_ok = status_counts.get("total_ok", 0)
             total_ng = status_counts.get("total_ng", 0)
-            
+
             # 🔹 get cursor description to preserve column order
             result = conn.execute(query, {**params, "offset": offset, "limit": limit})
             columns = result.keys()  # ordered list of columns
             rows = [dict(zip(columns, row)) for row in result.fetchall()]
+
         def format_float(value):
             """Format value to 4 decimal places if it's a float or numeric string."""
             try:
-                 # Convert to float once
+                # Convert to float once
                 fval = float(value)
 
                 # Check if original was string and contained a decimal point
                 # print(f"Value: {value}, Float: {fval}, Type: {type(value)}, IsStr: {isinstance(value, str)}, HasDot: {'.' in value if isinstance(value, str) else 'N/A'}")
-                if (isinstance(value, str) or isinstance(value, float))  or "." in value:
+                if (isinstance(value, str) or isinstance(value, float)) or "." in value:
 
                     return f"{fval:.4f}"
                 else:
@@ -1045,9 +1059,22 @@ def fetch_data_zone02():
             except (ValueError, TypeError):
                 return value  # leave as is if not numeric
 
+        def format_datetime(value):
+            """Format datetime to 'DD Mon YYYY HH:MM:SS'."""
+            if isinstance(value, datetime):
+                return value.strftime("%d %b %Y %H:%M:%S")
+            try:
+                parsed = datetime.fromisoformat(str(value).replace("Z", ""))
+                return parsed.strftime("%d %b %Y %H:%M:%S")
+            except Exception:
+                return value  # leave unchanged if parsing fails
+
         for row in rows:
             for k, v in row.items():
-                row[k] = format_float(v)
+                if k.lower() == "datetime":
+                    row[k] = format_datetime(v)
+                else:
+                    row[k] = format_float(v)
 
         # 🔹 Special transformation for ACIR_Testing_Station
         if station_table == "ACIR_Testing_Station":
@@ -1107,9 +1134,8 @@ def fetch_data_zone02():
                 "Module_Level_Resistance", "Status"
             ]
 
-
         return jsonify({
-            "columns": list(columns),   # 👈 send ordered columns to UI
+            "columns": list(columns),  # 👈 send ordered columns to UI
             "data": rows,
             "page": page,
             "limit": limit,
@@ -1129,7 +1155,7 @@ def fetch_data_zone02():
 def export_excel_zone02():
     try:
         body = request.get_json(force=True) or {}
-        station_table = body.get("station_name")   # 👈 Table name
+        station_table = body.get("station_name")  # 👈 Table name
         barcode = body.get("barcode")
         start_date = parse_date(body.get("start_date"))
         end_date = parse_date(body.get("end_date"))
@@ -1164,7 +1190,7 @@ def export_excel_zone02():
         filename = f"{safe_station}_{timestamp}.xlsx"
 
         export_dir = os.path.join(app.root_path, "exports")
-        os.makedirs(export_dir, exist_ok=True)   # ✅ ensure folder exists
+        os.makedirs(export_dir, exist_ok=True)  # ✅ ensure folder exists
 
         filepath = os.path.join(export_dir, filename)
         df.to_excel(filepath, index=False)
@@ -1186,7 +1212,7 @@ def export_excel_zone02():
 def fetch_data_zone03():
     try:
         body = request.get_json(force=True) or {}
-        station_table = body.get("station_name")   # 👈 Table name
+        station_table = body.get("station_name")  # 👈 Table name
         barcode = body.get("barcode")
         start_date = parse_date(body.get("start_date"))
         end_date = parse_date(body.get("end_date"))
@@ -1215,12 +1241,12 @@ def fetch_data_zone03():
             ORDER BY [DateTime] DESC
             OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
         """)
-         # Total count
+        # Total count
         count_query = text(f"""
             SELECT COUNT(*) as total FROM [{station_table}]
             WHERE {where_clause}
         """)
-         # Status counts
+        # Status counts
         status_query = text(f"""
             SELECT 
                 SUM(CASE WHEN Status = 1 THEN 1 ELSE 0 END) as total_ok,
@@ -1231,24 +1257,25 @@ def fetch_data_zone03():
 
         with engine_zone03.connect() as conn:
             total = conn.execute(count_query, params).scalar()
-            
+
             status_counts = conn.execute(status_query, params).mappings().first() or {}
             total_ok = status_counts.get("total_ok", 0)
             total_ng = status_counts.get("total_ng", 0)
-            
+
             # 🔹 get cursor description to preserve column order
             result = conn.execute(query, {**params, "offset": offset, "limit": limit})
             columns = result.keys()  # ordered list of columns
             rows = [dict(zip(columns, row)) for row in result.fetchall()]
+
         def format_float(value):
             """Format value to 4 decimal places if it's a float or numeric string."""
             try:
-                 # Convert to float once
+                # Convert to float once
                 fval = float(value)
 
                 # Check if original was string and contained a decimal point
                 # print(f"Value: {value}, Float: {fval}, Type: {type(value)}, IsStr: {isinstance(value, str)}, HasDot: {'.' in value if isinstance(value, str) else 'N/A'}")
-                if (isinstance(value, str) or isinstance(value, float))  or "." in value:
+                if (isinstance(value, str) or isinstance(value, float)) or "." in value:
 
                     return f"{fval:.4f}"
                 else:
@@ -1261,7 +1288,7 @@ def fetch_data_zone03():
                 row[k] = format_float(v)
 
         return jsonify({
-            "columns": list(columns),   # 👈 send ordered columns to UI
+            "columns": list(columns),  # 👈 send ordered columns to UI
             "data": rows,
             "page": page,
             "limit": limit,
@@ -1281,7 +1308,7 @@ def fetch_data_zone03():
 def export_excel_zone03():
     try:
         body = request.get_json(force=True) or {}
-        station_table = body.get("station_name")   # 👈 Table name
+        station_table = body.get("station_name")  # 👈 Table name
         barcode = body.get("barcode")
         start_date = parse_date(body.get("start_date"))
         end_date = parse_date(body.get("end_date"))
@@ -1316,7 +1343,7 @@ def export_excel_zone03():
         filename = f"{safe_station}_{timestamp}.xlsx"
 
         export_dir = os.path.join(app.root_path, "exports")
-        os.makedirs(export_dir, exist_ok=True)   # ✅ ensure folder exists
+        os.makedirs(export_dir, exist_ok=True)  # ✅ ensure folder exists
 
         filepath = os.path.join(export_dir, filename)
         df.to_excel(filepath, index=False)
